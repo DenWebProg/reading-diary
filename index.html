@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Читательский дневник</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Дневник">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Golos+Text:wght@400;500;600&display=swap">
+<style>
+/* Layout: one narrow column, sticky tabs+search, entries grouped by month */
+:root {
+  --bg: #eef1f4; --card: #ffffff; --fg: #1d2430; --muted: #66707e; --line: #d5dbe3;
+  --accent: #3b4fc4; --accent-soft: #e2e6fb;
+  --mini: #2f8f6b; --midi: #b7791f; --maxi: #b33f62;
+  --display: "Unbounded", "Arial Black", sans-serif;
+  --body: "Golos Text", -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #12161d; --card: #1b212b; --fg: #e6e9ef; --muted: #98a1ae; --line: #2c3441;
+  --accent: #8d9cff; --accent-soft: #252c4a; --mini: #5cc79c; --midi: #e0a64a; --maxi: #ee7799; color-scheme: dark } }
+
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; }
+.wrap { max-width: 640px; margin: 0 auto; padding: 20px 16px 60px; }
+h1 { font-family: var(--display); font-weight: 700; font-size: 1.5rem; margin: 0 0 4px; text-wrap: balance; }
+.sub { color: var(--muted); margin: 0 0 16px; font-size: .9rem; }
+[hidden] { display: none !important; }
+
+.bar { position: sticky; top: 0; z-index: 5; background: var(--bg); padding-block: 8px; display: grid; gap: 8px; }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
+.tabs button { border: 0; background: none; padding: 10px; border-radius: 9px; font: 600 .95rem var(--body); color: var(--muted); cursor: pointer; }
+.tabs button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.tabs .n { font-variant-numeric: tabular-nums; opacity: .75; margin-left: 4px; }
+input { font: inherit; font-size: 16px; color: var(--fg); background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; width: 100%; box-sizing: border-box; min-width: 0; }
+/* iOS рисует поле месяца шире контейнера, если не снять системный вид */
+input[type="month"] { -webkit-appearance: none; appearance: none; display: block; min-height: 44px; text-align: left; }
+input::-webkit-date-and-time-value { text-align: left; }
+form label { min-width: 0; }
+input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+form { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 10px; margin-block: 8px 20px; }
+form .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+form label { display: grid; gap: 4px; font-size: .8rem; color: var(--muted); letter-spacing: .02em; }
+.sizes { display: flex; gap: 6px; }
+.sizes button { flex: 1; }
+.chip { border: 1px solid var(--line); background: var(--card); color: var(--fg); border-radius: 999px; padding: 7px 10px; font: 500 .85rem var(--body); cursor: pointer; }
+.sizes button[aria-pressed="true"][data-s="мини"] { border-color: var(--mini); color: var(--mini); background: color-mix(in srgb, var(--mini) 12%, transparent); }
+.sizes button[aria-pressed="true"][data-s="миди"] { border-color: var(--midi); color: var(--midi); background: color-mix(in srgb, var(--midi) 12%, transparent); }
+.sizes button[aria-pressed="true"][data-s="макси"] { border-color: var(--maxi); color: var(--maxi); background: color-mix(in srgb, var(--maxi) 12%, transparent); }
+.emojis { display: flex; flex-wrap: wrap; gap: 4px; }
+.emojis button { border: 0; background: var(--bg); border-radius: 8px; font-size: 1.25rem; width: 40px; height: 40px; cursor: pointer; }
+.actions { display: flex; gap: 8px; }
+.primary { flex: 1; border: 0; background: var(--accent); color: var(--card); border-radius: 10px; padding: 12px; font: 600 1rem var(--body); cursor: pointer; }
+.primary:disabled { opacity: .6; }
+.ghost { border: 1px solid var(--line); background: none; color: var(--muted); border-radius: 10px; padding: 12px 14px; font: 500 1rem var(--body); cursor: pointer; }
+
+.month { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 22px 0 8px; }
+.month h2 { font-family: var(--display); font-weight: 500; font-size: 1rem; margin: 0; text-transform: capitalize; }
+.month .stat { color: var(--muted); font-size: .85rem; font-variant-numeric: tabular-nums; }
+ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+li { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: start; }
+li .t { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+li .a { color: var(--muted); font-size: .88rem; min-width: 0; overflow-wrap: anywhere; grid-column: 1 / -1; }
+li .e { font-size: 1.15rem; letter-spacing: .08em; grid-column: 1 / -1; overflow-wrap: anywhere; }
+.badge { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; border-radius: 999px; padding: 3px 8px; justify-self: end; }
+.badge.мини { color: var(--mini); background: color-mix(in srgb, var(--mini) 14%, transparent); }
+.badge.миди { color: var(--midi); background: color-mix(in srgb, var(--midi) 14%, transparent); }
+.badge.макси { color: var(--maxi); background: color-mix(in srgb, var(--maxi) 14%, transparent); }
+li .ops { grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+li .ops button { border: 0; background: var(--bg); color: var(--muted); border-radius: 8px; padding: 6px 10px; font: 500 .82rem var(--body); cursor: pointer; }
+li .ops .done { color: var(--accent); background: var(--accent-soft); }
+li .ops .del[data-armed] { color: var(--maxi); }
+.empty { color: var(--muted); text-align: center; padding: 36px 12px; border: 1px dashed var(--line); border-radius: 14px; }
+.note { color: var(--maxi); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Читательский дневник</h1>
+  <p class="sub" id="status">Загружаю список…</p>
+
+  <form id="login" hidden>
+    <label>Пароль дневника<input id="pin" type="password" autocomplete="current-password" required></label>
+    <div class="actions"><button class="primary">Войти</button></div>
+  </form>
+
+  <div id="app">
+  <div class="bar">
+    <div class="tabs">
+      <button id="tab-read" aria-pressed="true">Прочитано<span class="n" id="n-read"></span></button>
+      <button id="tab-plan" aria-pressed="false">В планах<span class="n" id="n-plan"></span></button>
+    </div>
+    <input id="q" type="search" placeholder="Поиск по названию, автору, смайликам">
+  </div>
+
+  <form id="f" autocomplete="off">
+    <div class="row">
+      <label>Название<input id="f-title" required></label>
+      <label>Автор / фандом<input id="f-author"></label>
+    </div>
+    <div class="sizes" id="f-size">
+      <button type="button" class="chip" data-s="мини" aria-pressed="false">мини</button>
+      <button type="button" class="chip" data-s="миди" aria-pressed="false">миди</button>
+      <button type="button" class="chip" data-s="макси" aria-pressed="false">макси</button>
+    </div>
+    <label id="l-month">Месяц прочтения<input id="f-month" type="month"></label>
+    <label id="l-emo">Впечатления<input id="f-emo" placeholder="смайлики, например 😭🔥"></label>
+    <div class="emojis" id="emo-pick"></div>
+    <div class="actions">
+      <button class="primary" id="f-save">Добавить</button>
+      <button type="button" class="ghost" id="f-cancel" hidden>Отмена</button>
+    </div>
+  </form>
+
+  <div id="list"></div>
+  </div>
+</div>
+
+<script>
+const EMO = ["😍","🥰","😭","🔥","💔","😂","🤯","😱","🥺","😌","💖","⭐","👍","😐","🥱","👎"];
+const MONTHS = ["январь","февраль","март","апрель","май","июнь","июль","август","сентябрь","октябрь","ноябрь","декабрь"];
+const $ = id => document.getElementById(id);
+const thisMonth = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); };
+const API = "https://script.google.com/macros/s/AKfycbzHUEzuwrxahdq4WxX33LSAIDwvMol9K9xkGRimdzkF-7qw-gmDKdqSl5Zl7w0tLIRu/exec"; // адрес веб-приложения Apps Script, заканчивается на /exec
+const store = { get: k => { try { return localStorage.getItem(k) || ""; } catch { return ""; } },
+  set: (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch {} } };
+let pin = store.get("pin");
+
+// text/plain без заголовков: браузер не делает CORS-preflight, который Apps Script не умеет
+async function call(action, arg) {
+  const body = { pin, action };
+  if (action === "save") body.book = arg; else if (action === "remove") body.id = arg;
+  const r = await fetch(API, { method: "POST", body: JSON.stringify(body) });
+  const d = await r.json();
+  if (d.error === "bad_pin") { pin = ""; store.set("pin", ""); showLogin("Неверный пароль."); throw new Error("нужен пароль"); }
+  if (d.error) throw new Error(d.error);
+  return d;
+}
+
+function showLogin(msg) {
+  $("login").hidden = false; $("app").hidden = true;
+  $("status").textContent = msg || "Введи пароль, который записан в скрипте."; $("status").className = msg ? "sub note" : "sub";
+}
+$("login").onsubmit = e => {
+  e.preventDefault(); pin = $("pin").value.trim(); store.set("pin", pin);
+  $("login").hidden = true; $("app").hidden = false; load();
+};
+function load() { $("status").textContent = "Загружаю список…"; call("list").then(setBooks, showErr); }
+
+let books = [], tab = "read", editing = null, size = "";
+
+EMO.forEach(e => { const b = document.createElement("button"); b.type = "button"; b.textContent = e;
+  b.onclick = () => { $("f-emo").value += e; }; $("emo-pick").append(b); });
+
+function setSize(s) { size = s; for (const b of $("f-size").children) b.setAttribute("aria-pressed", b.dataset.s === s); }
+$("f-size").onclick = e => { const s = e.target.dataset.s; if (s) setSize(size === s ? "" : s); };
+
+function setTab(t) {
+  tab = t; $("tab-read").setAttribute("aria-pressed", t === "read"); $("tab-plan").setAttribute("aria-pressed", t === "plan");
+  $("l-month").hidden = $("l-emo").hidden = $("emo-pick").hidden = t === "plan";
+  resetForm(); render();
+}
+$("tab-read").onclick = () => setTab("read");
+$("tab-plan").onclick = () => setTab("plan");
+$("q").oninput = render;
+
+function resetForm() {
+  editing = null; $("f").reset(); setSize(""); $("f-month").value = thisMonth();
+  const a = EMO[Math.floor(Math.random() * EMO.length)];
+  let b; do b = EMO[Math.floor(Math.random() * EMO.length)]; while (b === a);
+  $("f-emo").placeholder = "смайлики, например " + a + b;
+  $("f-save").textContent = "Добавить"; $("f-cancel").hidden = true;
+}
+$("f-cancel").onclick = resetForm;
+
+async function run(fn, arg) {
+  $("status").textContent = "Сохраняю…"; $("status").className = "sub"; $("f-save").disabled = true;
+  try { setBooks(await call(fn, arg)); }
+  catch (err) { showErr(err); }
+  finally { $("f-save").disabled = false; }
+}
+
+$("f").onsubmit = e => {
+  e.preventDefault();
+  const status = editing ? editing.status : tab;
+  const b = { id: editing ? editing.id : "", createdAt: editing ? editing.createdAt : 0, status,
+    title: $("f-title").value.trim(), author: $("f-author").value.trim(), size,
+    month: status === "read" ? ($("f-month").value || thisMonth()) : "",
+    emojis: $("f-emo").value.trim() };
+  if (!b.title) return;
+  resetForm(); run("save", b);
+};
+
+function edit(b) {
+  editing = b; $("f-title").value = b.title; $("f-author").value = b.author || ""; setSize(b.size || "");
+  $("f-month").value = b.month || thisMonth(); $("f-emo").value = b.emojis || "";
+  $("f-save").textContent = "Сохранить"; $("f-cancel").hidden = false;
+  window.scrollTo({ top: 0, behavior: "smooth" }); $("f-title").focus();
+}
+
+function monthLabel(m) { if (!m) return "Без месяца"; const [y, mo] = m.split("-"); return (MONTHS[+mo - 1] || m) + " " + y; }
+function plural(n) { const a = n % 10, b = n % 100;
+  return a === 1 && b !== 11 ? "работа" : a >= 2 && a <= 4 && (b < 12 || b > 14) ? "работы" : "работ"; }
+
+function render() {
+  const q = $("q").value.trim().toLowerCase();
+  $("n-read").textContent = books.filter(b => b.status === "read").length || "";
+  $("n-plan").textContent = books.filter(b => b.status === "plan").length || "";
+  const list = books.filter(b => b.status === tab &&
+    (!q || [b.title, b.author, b.emojis, b.size].join(" ").toLowerCase().includes(q)));
+  const root = $("list"); root.replaceChildren();
+  if (!list.length) {
+    const d = document.createElement("div"); d.className = "empty";
+    d.textContent = q ? "Ничего не нашлось." : tab === "read"
+      ? "Здесь появятся прочитанные работы, по месяцам. Добавь первую через форму выше."
+      : "Здесь будет список того, что хочется прочитать.";
+    root.append(d); return;
+  }
+  if (tab === "plan") { list.sort((a, b) => b.createdAt - a.createdAt); root.append(ul(list)); return; }
+  list.sort((a, b) => (b.month || "").localeCompare(a.month || "") || b.createdAt - a.createdAt);
+  const groups = new Map();
+  for (const b of list) { if (!groups.has(b.month)) groups.set(b.month, []); groups.get(b.month).push(b); }
+  for (const [m, items] of groups) {
+    const h = document.createElement("div"); h.className = "month";
+    const t = document.createElement("h2"); t.textContent = monthLabel(m);
+    const s = document.createElement("span"); s.className = "stat";
+    const by = ["мини", "миди", "макси"].map(k => [k, items.filter(i => i.size === k).length]).filter(x => x[1]);
+    s.textContent = items.length + " " + plural(items.length) + (by.length ? " · " + by.map(x => x[0] + " " + x[1]).join(", ") : "");
+    h.append(t, s); root.append(h, ul(items));
+  }
+}
+
+function ul(items) {
+  const u = document.createElement("ul");
+  for (const b of items) {
+    const li = document.createElement("li");
+    const t = document.createElement("div"); t.className = "t"; t.textContent = b.title;
+    const badge = document.createElement("span"); if (b.size) { badge.className = "badge " + b.size; badge.textContent = b.size; }
+    li.append(t, badge);
+    if (b.author) { const a = document.createElement("div"); a.className = "a"; a.textContent = b.author; li.append(a); }
+    if (b.status === "read" && b.emojis) { const e = document.createElement("div"); e.className = "e"; e.textContent = b.emojis; li.append(e); }
+    const ops = document.createElement("div"); ops.className = "ops";
+    if (b.status === "plan") ops.append(btn("✓ Прочитано", () => run("save", { ...b, status: "read", month: thisMonth() }), "done"));
+    ops.append(btn("Изменить", () => edit(b)));
+    const del = btn("Удалить", () => {
+      if (!del.dataset.armed) { del.dataset.armed = 1; del.textContent = "Точно удалить?"; return; }
+      run("remove", b.id);
+    }, "del");
+    ops.append(del); li.append(ops); u.append(li);
+  }
+  return u;
+}
+function btn(label, fn, cls) { const b = document.createElement("button"); b.type = "button"; b.textContent = label; if (cls) b.className = cls; b.onclick = fn; return b; }
+function setBooks(list) { books = list; $("status").textContent = "Всё сохранено в Google Таблице."; $("status").className = "sub"; render(); }
+function showErr(err) { if (!$("login").hidden) return; $("status").textContent = "Не получилось: " + (err?.message || err) + ". Обнови страницу и попробуй ещё раз."; $("status").className = "sub note"; }
+
+resetForm(); render();
+if (pin) load(); else showLogin();
+</script>
+</body>
+</html>
